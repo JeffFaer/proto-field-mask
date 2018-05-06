@@ -14,6 +14,11 @@ public abstract class FieldMask<M extends Message> {
     return new AllowAllFieldMask<>(prototype.getDescriptorForType());
   }
 
+  public static <M extends Message> Builder<M> newBuilder(M prototype) {
+    return new AutoValue_AllowSomeFieldMask.Builder<M>()
+        .setDescriptorForType(prototype.getDescriptorForType());
+  }
+
   FieldMask() {}
 
   /** The {@link Descriptor} for {@code M} */

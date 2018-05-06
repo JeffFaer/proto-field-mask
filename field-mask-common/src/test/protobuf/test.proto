@@ -5,8 +5,14 @@ option java_package = "name.falgout.jeffrey.proto.fieldmask";
 message Foo {
     optional int32 int_field = 1;
     optional Bar bar_field = 2;
+    optional Baz baz_field = 3;
 }
 
 message Bar {
     optional string string_field = 1;
+    optional bytes bytes_field = 2;
+    optional Baz nested_baz = 3;
+}
+
+message Baz {
 }

@@ -61,4 +61,11 @@ class FieldPathTest {
             Foo.getDescriptor().findFieldByNumber(Foo.INT_FIELD_FIELD_NUMBER),
             Bar.getDescriptor().findFieldByNumber(Bar.STRING_FIELD_FIELD_NUMBER)));
   }
+
+  @Test
+  void createFromPathString_cannotBeEmpty() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> FieldPath.create(Foo.getDefaultInstance(), ""));
+  }
 }

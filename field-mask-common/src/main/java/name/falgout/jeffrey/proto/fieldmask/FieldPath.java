@@ -70,6 +70,7 @@ public abstract class FieldPath<M extends Message> {
   private static <M extends Message> FieldPath<M> create(
       Descriptor descriptor,
       Iterable<? extends FieldDescriptor> fields) {
+    Preconditions.checkArgument(!Iterables.isEmpty(fields), "Cannot create empty FieldPath.");
     return new AutoValue_FieldPath<>(descriptor, ImmutableList.copyOf(fields));
   }
 
@@ -87,5 +88,18 @@ public abstract class FieldPath<M extends Message> {
 
   public final String toPathString() {
     return getPath().stream().map(FieldDescriptor::getName).collect(joining(FIELD_PATH_SEPARATOR));
+  }
+
+  public final FieldPath<M> getParentPath(int lastFieldIndex) {
+    return create(getDescriptorForType(), getPath().subList(0, lastFieldIndex));
+  }
+
+  public final FieldPath<?> subPath(int fromIndex) {
+    return subPath(fromIndex, getPath().size());
+  }
+
+  public final FieldPath<?> subPath(int fromIndex, int toIndex) {
+    Descriptor subPathType = getPath().get(fromIndex).getContainingType();
+    return create(subPathType, getPath().subList(fromIndex, toIndex));
   }
 }
