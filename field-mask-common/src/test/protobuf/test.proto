@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option java_package = "name.falgout.jeffrey.proto.fieldmask";
+
+message Foo {
+    optional int32 int_field = 1;
+    optional Bar bar_field = 2;
+}
+
+message Bar {
+    optional string string_field = 1;
+}
