@@ -6,6 +6,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
@@ -79,6 +80,10 @@ public abstract class FieldPath<M extends Message> {
 
   /** The fields that form this {@code FieldPath}. */
   public abstract ImmutableList<FieldDescriptor> getPath();
+
+  public final FieldDescriptor getLastField() {
+    return Iterables.getLast(getPath());
+  }
 
   public final String toPathString() {
     return getPath().stream().map(FieldDescriptor::getName).collect(joining(FIELD_PATH_SEPARATOR));
