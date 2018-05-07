@@ -8,9 +8,11 @@ import name.falgout.jeffrey.proto.fieldmask.Test.Foo;
 import org.junit.jupiter.api.Test;
 
 class FieldPathTest {
+  private static final Foo FOO = Foo.getDefaultInstance();
+
   @Test
   void createFromPathString() {
-    FieldPath<Foo> fieldPath = FieldPath.create(Foo.getDefaultInstance(), "bar_field.string_field");
+    FieldPath<Foo> fieldPath = FieldPath.create(FOO, "bar_field.string_field");
 
     assertThat(fieldPath.getDescriptorForType()).isEqualTo(Foo.getDescriptor());
     assertThat(fieldPath.getPath()).hasSize(2);
@@ -20,7 +22,7 @@ class FieldPathTest {
   @Test
   void createFromDescriptors() {
     FieldPath<Foo> fieldPath = FieldPath.create(
-        Foo.getDefaultInstance(),
+        FOO,
         Foo.getDescriptor().findFieldByName("bar_field"),
         Bar.getDescriptor().findFieldByNumber(Bar.STRING_FIELD_FIELD_NUMBER));
 
@@ -33,14 +35,14 @@ class FieldPathTest {
   void createFromPathString_fieldsMustExist() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> FieldPath.create(Foo.getDefaultInstance(), "abc"));
+        () -> FieldPath.create(FOO, "abc"));
   }
 
   @Test
   void createFromPathString_intermediateFieldsMustBeMessages() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> FieldPath.create(Foo.getDefaultInstance(), "int_field.string_field"));
+        () -> FieldPath.create(FOO, "int_field.string_field"));
   }
 
   @Test
@@ -48,8 +50,7 @@ class FieldPathTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> FieldPath.create(
-            Foo.getDefaultInstance(),
-            Bar.getDescriptor().findFieldByNumber(Bar.STRING_FIELD_FIELD_NUMBER)));
+            FOO, Bar.getDescriptor().findFieldByNumber(Bar.STRING_FIELD_FIELD_NUMBER)));
   }
 
   @Test
@@ -57,15 +58,35 @@ class FieldPathTest {
     assertThrows(
         IllegalArgumentException.class,
         () -> FieldPath.create(
-            Foo.getDefaultInstance(),
+            FOO,
             Foo.getDescriptor().findFieldByNumber(Foo.INT_FIELD_FIELD_NUMBER),
             Bar.getDescriptor().findFieldByNumber(Bar.STRING_FIELD_FIELD_NUMBER)));
   }
 
   @Test
   void createFromPathString_cannotBeEmpty() {
-    assertThrows(
-        IllegalArgumentException.class,
-        () -> FieldPath.create(Foo.getDefaultInstance(), ""));
+    assertThrows(IllegalArgumentException.class, () -> FieldPath.create(FOO, ""));
+  }
+
+  @Test
+  void append() {
+    FieldPath<Foo> path = FieldPath.create(FOO, "bar_field");
+    FieldPath<Foo> fullPath = FieldPath.create(FOO, "bar_field.string_field");
+
+    FieldPath<Foo> appended =
+        FieldPath.append(path, Bar.getDescriptor().findFieldByName("string_field"));
+
+    assertThat(appended).isEqualTo(fullPath);
+  }
+
+  @Test
+  void append_toEmptyPath() {
+    FieldPath<Foo> path = FieldPath.create(FOO);
+    FieldPath<Foo> fullPath = FieldPath.create(FOO, "bar_field");
+
+    FieldPath<Foo> appended =
+        FieldPath.append(path, Foo.getDescriptor().findFieldByName("bar_field"));
+
+    assertThat(appended).isEqualTo(fullPath);
   }
 }

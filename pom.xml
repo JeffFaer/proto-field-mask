@@ -73,6 +73,12 @@
         <version>${truth.version}</version>
         <scope>test</scope>
       </dependency>
+      <dependency>
+        <groupId>com.google.truth.extensions</groupId>
+        <artifactId>truth-proto-extension</artifactId>
+        <version>${truth.version}</version>
+        <scope>test</scope>
+      </dependency>
     </dependencies>
   </dependencyManagement>
 
