@@ -190,6 +190,16 @@ class FieldMaskTest {
   }
 
   @Test
+  void getSubFieldMask_emptyPath() {
+    FieldMask<Foo> mask =
+        FieldMask.newBuilder(FOO)
+            .addFieldPath(FieldPath.create(FOO, "bar_field"))
+            .build();
+
+    assertThat(mask.getSubFieldMask(FieldPath.create(FOO))).isSameAs(mask);
+  }
+
+  @Test
   void fromProto() {
     com.google.protobuf.FieldMask proto =
         com.google.protobuf.FieldMask.newBuilder()

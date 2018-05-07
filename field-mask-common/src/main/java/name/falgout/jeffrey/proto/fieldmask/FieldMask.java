@@ -151,8 +151,12 @@ public final class FieldMask<M extends Message> {
    */
   public final FieldMask<?> getSubFieldMask(FieldPath<?> path) {
     Preconditions.checkArgument(path.getDescriptorForType().equals(descriptor));
-    Preconditions.checkArgument(path.getLastField().getJavaType() == JavaType.MESSAGE);
 
+    if (path.getPath().isEmpty()) {
+      return this;
+    }
+
+    Preconditions.checkArgument(path.getLastField().getJavaType() == JavaType.MESSAGE);
     Descriptor subFieldDescriptor = path.getLastField().getMessageType();
 
     Node node = root;
