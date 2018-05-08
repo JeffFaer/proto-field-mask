@@ -15,4 +15,5 @@ message Bar {
 }
 
 message Baz {
+    optional int32 field_in_baz = 1;
 }

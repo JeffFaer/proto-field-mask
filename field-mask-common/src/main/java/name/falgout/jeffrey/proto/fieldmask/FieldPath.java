@@ -10,6 +10,7 @@ import com.google.common.collect.Iterables;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
+import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import com.google.protobuf.util.FieldMaskUtil;
 import java.util.stream.Stream;
@@ -31,22 +32,21 @@ public abstract class FieldPath<M extends Message> {
    *
    * @throws IllegalArgumentException if the path string is invalid for the given proto type
    */
-  public static <M extends Message> FieldPath<M> create(M prototype, String pathString) {
-    Preconditions.checkArgument(
-        FieldMaskUtil.isValid(prototype.getDescriptorForType(), pathString));
+  public static <M extends Message> FieldPath<M> create(Class<M> type, String pathString) {
+    Preconditions.checkArgument(FieldMaskUtil.isValid(type, pathString), "Invalid pathString");
 
     ImmutableList.Builder<FieldDescriptor> fields = ImmutableList.builder();
+    Descriptor descriptor = Internal.getDefaultInstance(type).getDescriptorForType();
 
     FieldDescriptor lastField = null;
     for (String fieldName : FIELD_PATH_SPLITTER.split(pathString)) {
-      Descriptor lastDescriptor =
-          lastField == null ? prototype.getDescriptorForType() : lastField.getMessageType();
+      Descriptor lastDescriptor = lastField == null ? descriptor : lastField.getMessageType();
 
       lastField = lastDescriptor.findFieldByName(fieldName);
       fields.add(lastField);
     }
 
-    return create(prototype.getDescriptorForType(), fields.build());
+    return create(type, fields.build());
   }
 
   /**
@@ -54,11 +54,11 @@ public abstract class FieldPath<M extends Message> {
    *
    * @throws IllegalArgumentException if the path is invalid for the given proto type
    */
-  public static <M extends Message> FieldPath<M> create(M prototype, FieldDescriptor... fields) {
-    return create(prototype.getDescriptorForType(), fields);
+  public static <M extends Message> FieldPath<M> create(Class<M> type, FieldDescriptor... fields) {
+    return create(Internal.getDefaultInstance(type).getDescriptorForType(), fields).castTo(type);
   }
 
-  static <M extends Message> FieldPath<M> create(Descriptor descriptor, FieldDescriptor... fields) {
+  static FieldPath<?> create(Descriptor descriptor, FieldDescriptor... fields) {
     if (fields.length == 0) {
       return create(descriptor, ImmutableList.of());
     }
@@ -71,6 +71,13 @@ public abstract class FieldPath<M extends Message> {
   }
 
   private static <M extends Message> FieldPath<M> create(
+      Class<M> type,
+      Iterable<? extends FieldDescriptor> fields) {
+    return new AutoValue_FieldPath<>(
+        Internal.getDefaultInstance(type).getDescriptorForType(), ImmutableList.copyOf(fields));
+  }
+
+  private static FieldPath<?> create(
       Descriptor descriptor,
       Iterable<? extends FieldDescriptor> fields) {
     return new AutoValue_FieldPath<>(descriptor, ImmutableList.copyOf(fields));
@@ -81,7 +88,7 @@ public abstract class FieldPath<M extends Message> {
       FieldPath<M> fieldPath,
       FieldDescriptor tail) {
     if (fieldPath.getPath().isEmpty()) {
-      return create(fieldPath.getDescriptorForType(), tail);
+      return create(fieldPath.getDescriptorForType(), tail).castTo(fieldPath);
     }
 
     Preconditions.checkArgument(fieldPath.getLastField().getJavaType() == JavaType.MESSAGE);
@@ -93,7 +100,7 @@ public abstract class FieldPath<M extends Message> {
     newPath.addAll(fieldPath.getPath());
     newPath.add(tail);
 
-    return create(fieldPath.getDescriptorForType(), newPath.build());
+    return create(fieldPath.getDescriptorForType(), newPath.build()).castTo(fieldPath);
   }
 
   FieldPath() {}
@@ -110,5 +117,25 @@ public abstract class FieldPath<M extends Message> {
 
   public final String toPathString() {
     return getPath().stream().map(FieldDescriptor::getName).collect(joining(FIELD_PATH_SEPARATOR));
+  }
+
+  public final <N extends Message> FieldPath<N> castTo(Class<N> type) {
+    return castTo(Internal.getDefaultInstance(type).getDescriptorForType());
+  }
+
+  private <N extends Message> FieldPath<N> castTo(FieldPath<N> other) {
+    return castTo(other.getDescriptorForType());
+  }
+
+  private <N extends Message> FieldPath<N> castTo(Descriptor descriptor) {
+    Preconditions.checkArgument(
+        descriptor.equals(getDescriptorForType()),
+        "Type mismatch. %s != %s",
+        descriptor,
+        getDescriptorForType());
+
+    @SuppressWarnings("unchecked")
+    FieldPath<N> result = (FieldPath<N>) this;
+    return result;
   }
 }

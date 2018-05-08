@@ -1,10 +1,13 @@
 package name.falgout.jeffrey.proto.fieldmask;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.DoNotMock;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
+import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import java.util.Comparator;
 import java.util.Objects;
@@ -22,25 +25,30 @@ import javax.annotation.concurrent.Immutable;
 @DoNotMock
 @Immutable
 public final class FieldMask<M extends Message> {
-  public static <M extends Message> FieldMask<M> allowAll(M prototype) {
-    return newBuilder(prototype).addFieldPath(FieldPath.create(prototype)).build();
+  public static <M extends Message> FieldMask<M> allowAll(Class<M> type) {
+    return newBuilder(type).addFieldPath(FieldPath.create(type)).build();
   }
 
-  public static <M extends Message> FieldMask<M> allowNone(M prototype) {
-    return newBuilder(prototype).build();
+  public static <M extends Message> FieldMask<M> allowNone(Class<M> type) {
+    return newBuilder(type).build();
   }
 
-  public static <M extends Message> Builder<M> newBuilder(M prototype) {
-    return new Builder<>(prototype.getDescriptorForType());
+  @SafeVarargs
+  public static <M extends Message> FieldMask<M> of(FieldPath<M> first, FieldPath<M>... morePaths) {
+    return new Builder<>(Lists.asList(first, morePaths)).build();
+  }
+
+  public static <M extends Message> Builder<M> newBuilder(Class<M> type) {
+    return new Builder<>(type);
   }
 
   public static <M extends Message> FieldMask<M> fromProto(
-      M prototype, com.google.protobuf.FieldMask fieldMask) {
-    Builder<M> builder = new Builder<>(prototype.getDescriptorForType());
+      Class<M> type, com.google.protobuf.FieldMask fieldMask) {
+    Builder<M> builder = newBuilder(type);
 
     fieldMask.getPathsList()
         .stream()
-        .map(pathString -> FieldPath.create(prototype, pathString))
+        .map(pathString -> FieldPath.create(type, pathString))
         .forEach(builder::addFieldPath);
 
     return builder.build();
@@ -184,12 +192,12 @@ public final class FieldMask<M extends Message> {
    * </pre>
    *
    * <li>The sub-field mask for {@code contact_info.mailing_address} would be an {@link
-   * #allowAll(Message)}.
+   * #allowAll(Class)}.
    *
    * <li>The sub-field mask for {@code name} would throw an {@code IllegalArugmentException} since
    * {@code name} is not a message
    *
-   * <li>The sub-field mask for {@code preferences} would be an {@link #allowNone(Message)}
+   * <li>The sub-field mask for {@code preferences} would be an {@link #allowNone(Class)}
    * </ul>
    *
    * @throws IllegalArgumentException if the {@code path}'s {@linkplain
@@ -227,8 +235,8 @@ public final class FieldMask<M extends Message> {
    * Converts this to a {@code FieldMask} to a {@linkplain com.google.protobuf.util.FieldMaskUtil#normalize(com.google.protobuf.FieldMask)
    * normalized} {@link com.google.protobuf.FieldMask}.
    *
-   * If this {@code FieldMask} is {@link #allowAll(Message)}, then the returned value will be
-   * absent. Otherwise, the returned value will be present.
+   * If this {@code FieldMask} is {@link #allowAll(Class)}, then the returned value will be absent.
+   * Otherwise, the returned value will be present.
    */
   public final Optional<com.google.protobuf.FieldMask> toProto() {
     if (root.children == null) {
@@ -241,6 +249,22 @@ public final class FieldMask<M extends Message> {
         .forEachOrdered(fieldMask::addPaths);
 
     return Optional.of(fieldMask.build());
+  }
+
+  public final <N extends Message> FieldMask<N> castTo(Class<N> type) {
+    return castTo(Internal.getDefaultInstance(type).getDescriptorForType());
+  }
+
+  private <N extends Message> FieldMask<N> castTo(Descriptor descriptor) {
+    Preconditions.checkArgument(
+        descriptor.equals(getDescriptorForType()),
+        "Type mismatch. %s != %s",
+        descriptor,
+        getDescriptorForType());
+
+    @SuppressWarnings("unchecked")
+    FieldMask<N> result = (FieldMask<N>) this;
+    return result;
   }
 
   @Override
@@ -275,8 +299,15 @@ public final class FieldMask<M extends Message> {
     private Node root = new Node();
     private boolean dirty = false;
 
-    Builder(Descriptor descriptor) {
-      this.descriptor = descriptor;
+    private Builder(Class<M> type) {
+      this.descriptor = Internal.getDefaultInstance(type).getDescriptorForType();
+    }
+
+    private Builder(Iterable<? extends FieldPath<M>> paths) {
+      Preconditions.checkState(!Iterables.isEmpty(paths));
+      this.descriptor = Iterables.get(paths, 0).getDescriptorForType();
+
+      addAllFieldPaths(paths);
     }
 
     Node getRoot() {
@@ -309,6 +340,11 @@ public final class FieldMask<M extends Message> {
       }
 
       node.children = null;
+      return this;
+    }
+
+    public Builder<M> addAllFieldPaths(Iterable<? extends FieldPath<M>> paths) {
+      paths.forEach(this::addFieldPath);
       return this;
     }
 
