@@ -7,7 +7,6 @@ import com.google.errorprone.annotations.DoNotMock;
 import com.google.protobuf.Descriptors.Descriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
-import com.google.protobuf.Internal;
 import com.google.protobuf.Message;
 import java.util.Comparator;
 import java.util.Objects;
@@ -17,6 +16,7 @@ import java.util.TreeMap;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
+import name.falgout.jeffrey.proto.ProtoDescriptor;
 
 /**
  * A {@code FieldMask} wraps a {@link com.google.protobuf.FieldMask} and provides some additional
@@ -26,11 +26,19 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class FieldMask<M extends Message> {
   public static <M extends Message> FieldMask<M> allowAll(Class<M> type) {
-    return newBuilder(type).addFieldPath(FieldPath.create(type)).build();
+    return allowAll(ProtoDescriptor.create(type));
+  }
+
+  public static <M extends Message> FieldMask<M> allowAll(ProtoDescriptor<M> descriptor) {
+    return newBuilder(descriptor).addFieldPath(FieldPath.create(descriptor)).build();
   }
 
   public static <M extends Message> FieldMask<M> allowNone(Class<M> type) {
-    return newBuilder(type).build();
+    return allowNone(ProtoDescriptor.create(type));
+  }
+
+  public static <M extends Message> FieldMask<M> allowNone(ProtoDescriptor<M> descriptor) {
+    return newBuilder(descriptor).build();
   }
 
   @SafeVarargs
@@ -39,16 +47,25 @@ public final class FieldMask<M extends Message> {
   }
 
   public static <M extends Message> Builder<M> newBuilder(Class<M> type) {
-    return new Builder<>(type);
+    return newBuilder(ProtoDescriptor.create(type));
+  }
+
+  public static <M extends Message> Builder<M> newBuilder(ProtoDescriptor<M> descriptor) {
+    return new Builder<>(descriptor);
   }
 
   public static <M extends Message> FieldMask<M> fromProto(
       Class<M> type, com.google.protobuf.FieldMask fieldMask) {
-    Builder<M> builder = newBuilder(type);
+    return fromProto(ProtoDescriptor.create(type), fieldMask);
+  }
+
+  public static <M extends Message> FieldMask<M> fromProto(
+      ProtoDescriptor<M> descriptor, com.google.protobuf.FieldMask fieldMask) {
+    Builder<M> builder = newBuilder(descriptor);
 
     fieldMask.getPathsList()
         .stream()
-        .map(pathString -> FieldPath.create(type, pathString))
+        .map(pathString -> FieldPath.create(descriptor, pathString))
         .forEach(builder::addFieldPath);
 
     return builder.build();
@@ -114,16 +131,16 @@ public final class FieldMask<M extends Message> {
     }
   }
 
-  private final Descriptor descriptor;
+  private final ProtoDescriptor<M> descriptor;
   private final Node root;
 
-  private FieldMask(Descriptor descriptor, Node root) {
+  private FieldMask(ProtoDescriptor<M> descriptor, Node root) {
     this.descriptor = descriptor;
     this.root = root;
   }
 
   /** The {@link Descriptor} for {@code M} */
-  public Descriptor getDescriptorForType() {
+  public ProtoDescriptor<M> getDescriptorForType() {
     return descriptor;
   }
 
@@ -203,7 +220,8 @@ public final class FieldMask<M extends Message> {
     }
 
     Preconditions.checkArgument(path.getLastField().getJavaType() == JavaType.MESSAGE);
-    Descriptor subFieldDescriptor = path.getLastField().getMessageType();
+    ProtoDescriptor<?> subFieldDescriptor =
+        ProtoDescriptor.create(path.getLastField().getMessageType());
 
     Node node = root;
     for (FieldDescriptor field : path.getPath()) {
@@ -212,7 +230,7 @@ public final class FieldMask<M extends Message> {
       }
 
       if (!node.children.containsKey(field)) {
-        return new FieldMask(subFieldDescriptor, new Node());
+        return new FieldMask<>(subFieldDescriptor, new Node());
       }
 
       node = node.children.get(field);
@@ -247,15 +265,16 @@ public final class FieldMask<M extends Message> {
    * This is useful if you have a {@code FieldMask<?>} and you want to reify its generic parameter.
    */
   public final <N extends Message> FieldMask<N> castTo(Class<N> type) {
-    return castTo(Internal.getDefaultInstance(type).getDescriptorForType());
+    return castTo(ProtoDescriptor.create(type));
   }
 
-  private <N extends Message> FieldMask<N> castTo(Descriptor descriptor) {
-    Preconditions.checkArgument(
-        descriptor.equals(getDescriptorForType()),
-        "Type mismatch. %s != %s",
-        descriptor,
-        getDescriptorForType());
+  /**
+   * Safely casts this {@code FieldMask} to the {@code N}.
+   *
+   * This is useful if you have a {@code FieldMask<?>} and you want to reify its generic parameter.
+   */
+  public final <N extends Message> FieldMask<N> castTo(ProtoDescriptor<N> descriptor) {
+    getDescriptorForType().castTo(descriptor);
 
     @SuppressWarnings("unchecked")
     FieldMask<N> result = (FieldMask<N>) this;
@@ -283,19 +302,19 @@ public final class FieldMask<M extends Message> {
   @Override
   public String toString() {
     return "FieldMask{" +
-        "descriptor=" + descriptor.getFullName() +
+        "descriptor=" + descriptor +
         ", root=" + root +
         '}';
   }
 
   /** A builder for {@code FieldMask}s. */
   public final static class Builder<M extends Message> {
-    private final Descriptor descriptor;
+    private final ProtoDescriptor<M> descriptor;
     private Node root = new Node();
     private boolean dirty = false;
 
-    private Builder(Class<M> type) {
-      this.descriptor = Internal.getDefaultInstance(type).getDescriptorForType();
+    private Builder(ProtoDescriptor<M> descriptor) {
+      this.descriptor = descriptor;
     }
 
     private Builder(Iterable<? extends FieldPath<M>> paths) {

@@ -14,9 +14,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 class FieldMaskTest {
+  private static final Class<Foo> FOO = Foo.class;
+  private static final Class<Bar> BAR = Bar.class;
+  private static final Class<Baz> BAZ = Baz.class;
+
   @Nested
   static class AllowAll {
-    final FieldMask<Foo> allowAll = FieldMask.allowAll(Foo.class);
+    final FieldMask<Foo> allowAll = FieldMask.allowAll(FOO);
 
     @Test
     void hasNoProto() {
@@ -25,25 +29,24 @@ class FieldMaskTest {
 
     @Test
     void containsAll() {
-      assertThat(allowAll.contains(FieldPath.create(Foo.class))).isTrue();
+      assertThat(allowAll.contains(FieldPath.create(FOO))).isTrue();
 
       for (FieldDescriptor field : Foo.getDescriptor().getFields()) {
-        assertThat(allowAll.contains(FieldPath.create(Foo.class, field))).isTrue();
+        assertThat(allowAll.contains(FieldPath.create(FOO, field))).isTrue();
       }
     }
 
     @Test
     void isRecursive() {
-      FieldMask<Bar> allOfBar = FieldMask.allowAll(Bar.class);
+      FieldMask<Bar> allOfBar = FieldMask.allowAll(BAR);
 
-      assertThat(allowAll.getSubFieldMask(FieldPath.create(Foo.class, "bar_field")))
-          .isEqualTo(allOfBar);
+      assertThat(allowAll.getSubFieldMask(FieldPath.create(FOO, "bar_field"))).isEqualTo(allOfBar);
     }
   }
 
   @Nested
   static class AllowNone {
-    final FieldMask<Foo> allowNone = FieldMask.allowNone(Foo.class);
+    final FieldMask<Foo> allowNone = FieldMask.allowNone(FOO);
 
     @Test
     void hasDefaultProto() {
@@ -52,18 +55,18 @@ class FieldMaskTest {
 
     @Test
     void containsNone() {
-      assertThat(allowNone.contains(FieldPath.create(Foo.class))).isFalse();
+      assertThat(allowNone.contains(FieldPath.create(FOO))).isFalse();
 
       for (FieldDescriptor field : Foo.getDescriptor().getFields()) {
-        assertThat(allowNone.contains(FieldPath.create(Foo.class, field))).isFalse();
+        assertThat(allowNone.contains(FieldPath.create(FOO, field))).isFalse();
       }
     }
 
     @Test
     void isRecursive() {
-      FieldMask<Bar> noneOfBar = FieldMask.allowNone(Bar.class);
+      FieldMask<Bar> noneOfBar = FieldMask.allowNone(BAR);
 
-      assertThat(allowNone.getSubFieldMask(FieldPath.create(Foo.class, "bar_field")))
+      assertThat(allowNone.getSubFieldMask(FieldPath.create(FOO, "bar_field")))
           .isEqualTo(noneOfBar);
     }
   }
@@ -72,23 +75,22 @@ class FieldMaskTest {
   static class Builder {
     @Test
     void ignoresDuplicates() {
-      FieldPath<Foo> path = FieldPath.create(Foo.class, "int_field");
+      FieldPath<Foo> path = FieldPath.create(FOO, "int_field");
 
       FieldMask<Foo> maskWithDuplicate =
-          FieldMask.newBuilder(Foo.class).addFieldPath(path).addFieldPath(path).build();
-      FieldMask<Foo> maskWithoutDuplicate =
-          FieldMask.newBuilder(Foo.class).addFieldPath(path).build();
+          FieldMask.newBuilder(FOO).addFieldPath(path).addFieldPath(path).build();
+      FieldMask<Foo> maskWithoutDuplicate = FieldMask.newBuilder(FOO).addFieldPath(path).build();
 
       assertThat(maskWithDuplicate).isEqualTo(maskWithoutDuplicate);
     }
 
     @Test
     void collapsesFields() {
-      FieldPath<Foo> barField = FieldPath.create(Foo.class, "bar_field");
-      FieldPath<Foo> stringField = FieldPath.create(Foo.class, "bar_field.string_field");
-      FieldPath<Foo> bytesField = FieldPath.create(Foo.class, "bar_field.bytes_field");
+      FieldPath<Foo> barField = FieldPath.create(FOO, "bar_field");
+      FieldPath<Foo> stringField = FieldPath.create(FOO, "bar_field.string_field");
+      FieldPath<Foo> bytesField = FieldPath.create(FOO, "bar_field.bytes_field");
 
-      FieldMask.Builder<Foo> builder = FieldMask.newBuilder(Foo.class);
+      FieldMask.Builder<Foo> builder = FieldMask.newBuilder(FOO);
 
       builder.addFieldPath(stringField);
       FieldMask<Foo> first = builder.build();
@@ -109,12 +111,12 @@ class FieldMaskTest {
 
     @Test
     void ignoresRedundantFields() {
-      FieldMask.Builder<Foo> builder = FieldMask.newBuilder(Foo.class);
-      builder.addFieldPath(FieldPath.create(Foo.class, "bar_field"));
+      FieldMask.Builder<Foo> builder = FieldMask.newBuilder(FOO);
+      builder.addFieldPath(FieldPath.create(FOO, "bar_field"));
 
       FieldMask<Foo> first = builder.build();
 
-      builder.addFieldPath(FieldPath.create(Foo.class, "bar_field.nested_baz"));
+      builder.addFieldPath(FieldPath.create(FOO, "bar_field.nested_baz"));
       FieldMask<Foo> second = builder.build();
 
       assertThat(first).isEqualTo(second);
@@ -125,14 +127,14 @@ class FieldMaskTest {
   void contains() {
     FieldMask<Foo> fooMask =
         FieldMask.of(
-            FieldPath.create(Foo.class, "int_field"),
-            FieldPath.create(Foo.class, "bar_field.string_field"));
+            FieldPath.create(FOO, "int_field"),
+            FieldPath.create(FOO, "bar_field.string_field"));
 
-    FieldPath<Foo> intField = FieldPath.create(Foo.class, "int_field");
-    FieldPath<Foo> barField = FieldPath.create(Foo.class, "bar_field");
-    FieldPath<Foo> bazField = FieldPath.create(Foo.class, "baz_field");
-    FieldPath<Foo> stringField = FieldPath.create(Foo.class, "bar_field.string_field");
-    FieldPath<Foo> bytesField = FieldPath.create(Foo.class, "bar_field.bytes_field");
+    FieldPath<Foo> intField = FieldPath.create(FOO, "int_field");
+    FieldPath<Foo> barField = FieldPath.create(FOO, "bar_field");
+    FieldPath<Foo> bazField = FieldPath.create(FOO, "baz_field");
+    FieldPath<Foo> stringField = FieldPath.create(FOO, "bar_field.string_field");
+    FieldPath<Foo> bytesField = FieldPath.create(FOO, "bar_field.bytes_field");
 
     assertThat(fooMask.contains(intField)).isTrue();
     assertThat(fooMask.contains(barField)).isTrue();
@@ -145,32 +147,32 @@ class FieldMaskTest {
   void getSubFieldMask() {
     FieldMask<Foo> mask =
         FieldMask.of(
-            FieldPath.create(Foo.class, "bar_field.nested_baz"),
-            FieldPath.create(Foo.class, "bar_field.string_field"),
-            FieldPath.create(Foo.class, "int_field"));
+            FieldPath.create(FOO, "bar_field.nested_baz"),
+            FieldPath.create(FOO, "bar_field.string_field"),
+            FieldPath.create(FOO, "int_field"));
 
-    assertThat(mask.getSubFieldMask(FieldPath.create(Foo.class, "baz_field")))
-        .isEqualTo(FieldMask.allowNone(Baz.class));
-    assertThat(mask.getSubFieldMask(FieldPath.create(Foo.class, "bar_field")))
+    assertThat(mask.getSubFieldMask(FieldPath.create(FOO, "baz_field")))
+        .isEqualTo(FieldMask.allowNone(BAZ));
+    assertThat(mask.getSubFieldMask(FieldPath.create(FOO, "bar_field")))
         .isEqualTo(
             FieldMask.of(
-                FieldPath.create(Bar.class, "nested_baz"),
-                FieldPath.create(Bar.class, "string_field")));
-    assertThat(mask.getSubFieldMask(FieldPath.create(Foo.class, "bar_field.nested_baz")))
-        .isEqualTo(FieldMask.allowAll(Baz.class));
+                FieldPath.create(BAR, "nested_baz"),
+                FieldPath.create(BAR, "string_field")));
+    assertThat(mask.getSubFieldMask(FieldPath.create(FOO, "bar_field.nested_baz")))
+        .isEqualTo(FieldMask.allowAll(BAZ));
   }
 
   @Test
   void getSubFieldMask_emptyPath() {
-    FieldMask<Foo> mask = FieldMask.of(FieldPath.create(Foo.class, "bar_field"));
+    FieldMask<Foo> mask = FieldMask.of(FieldPath.create(FOO, "bar_field"));
 
-    assertThat(mask.getSubFieldMask(FieldPath.create(Foo.class))).isSameAs(mask);
+    assertThat(mask.getSubFieldMask(FieldPath.create(FOO))).isSameAs(mask);
   }
 
   @Test
   void getSubFieldMask_checksTerminalFieldType() {
-    FieldMask<Foo> mask = FieldMask.allowAll(Foo.class);
-    FieldPath<Foo> path = FieldPath.create(Foo.class, "bar_field.string_field");
+    FieldMask<Foo> mask = FieldMask.allowAll(FOO);
+    FieldPath<Foo> path = FieldPath.create(FOO, "bar_field.string_field");
 
     assertThrows(IllegalArgumentException.class, () -> mask.getSubFieldMask(path));
   }
@@ -179,9 +181,9 @@ class FieldMaskTest {
   void toProto_isNormalized() {
     FieldMask<Foo> mask =
         FieldMask.of(
-            FieldPath.create(Foo.class, "int_field"),
-            FieldPath.create(Foo.class, "bar_field.string_field"),
-            FieldPath.create(Foo.class, "bar_field.bytes_field"));
+            FieldPath.create(FOO, "int_field"),
+            FieldPath.create(FOO, "bar_field.string_field"),
+            FieldPath.create(FOO, "bar_field.bytes_field"));
 
     com.google.protobuf.FieldMask expected =
         com.google.protobuf.FieldMask.newBuilder()
@@ -207,7 +209,7 @@ class FieldMaskTest {
             .addPaths("bar_field.string_field")
             .build();
 
-    FieldMask<Foo> fieldMask = FieldMask.fromProto(Foo.class, proto);
+    FieldMask<Foo> fieldMask = FieldMask.fromProto(FOO, proto);
 
     assertThat(fieldMask.toProto().get()).ignoringRepeatedFieldOrder().isEqualTo(proto);
   }
@@ -215,8 +217,8 @@ class FieldMaskTest {
   @Test
   void fromProto_empty() {
     com.google.protobuf.FieldMask proto = com.google.protobuf.FieldMask.getDefaultInstance();
-    FieldMask<Foo> fieldMask = FieldMask.fromProto(Foo.class, proto);
+    FieldMask<Foo> fieldMask = FieldMask.fromProto(FOO, proto);
 
-    assertThat(fieldMask).isEqualTo(FieldMask.allowNone(Foo.class));
+    assertThat(fieldMask).isEqualTo(FieldMask.allowNone(FOO));
   }
 }
