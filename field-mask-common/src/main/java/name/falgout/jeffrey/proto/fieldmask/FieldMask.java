@@ -15,6 +15,10 @@ import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
+/**
+ * A {@code FieldMask} wraps a {@link com.google.protobuf.FieldMask} and provides some additional
+ * helpful methods that aren't included in {@link com.google.protobuf.util.FieldMaskUtil}.
+ */
 @DoNotMock
 @Immutable
 public final class FieldMask<M extends Message> {
@@ -105,7 +109,7 @@ public final class FieldMask<M extends Message> {
   private final Descriptor descriptor;
   private final Node root;
 
-  FieldMask(Descriptor descriptor, Node root) {
+  private FieldMask(Descriptor descriptor, Node root) {
     this.descriptor = descriptor;
     this.root = root;
   }
@@ -117,6 +121,9 @@ public final class FieldMask<M extends Message> {
 
   /**
    * Determines whether the given {@link FieldPath} is included in this {@code FieldMask}.
+   *
+   * A {@code FieldPath} is included in this {@code FieldMask} if it is directly contained by this
+   * {@code FieldMask} or any of its sub-fields are contained by this {@code FieldMask}.
    *
    * @throws IllegalArgumentException if the {@code path}'s {@linkplain
    *     FieldPath#getDescriptorForType() type} is not equal to this {@code FieldMask}'s {@linkplain
@@ -142,7 +149,48 @@ public final class FieldMask<M extends Message> {
   }
 
   /**
-   * Returns a {@code FieldMask} for the given {@code FieldPath}.
+   * Returns a sub-{@code FieldMask} for the given {@code FieldPath}.
+   *
+   * For instance, if you had a proto
+   * <pre>
+   *   message User {
+   *     message ContactInfo {
+   *       optional string email = 1;
+   *       optional Address mailing_address = 2;
+   *     }
+   *
+   *     message Preferences {
+   *       optional bool do_not_call = 1;
+   *     }
+   *
+   *     optional string name = 1;
+   *     optional ContactInfo contact_info = 2;
+   *     optional Preferences preferences = 3;
+   *   }
+   * </pre>
+   *
+   * with a {@code FieldMask}
+   * <pre>
+   *   paths: contact_info.email
+   *   paths: contact_info.mailing_address
+   *   paths: name
+   * </pre>
+   *
+   * <ul>
+   * <li>The sub-field mask for {@code contact_info} would be
+   * <pre>
+   *   paths: email
+   *   paths: mailing_address
+   * </pre>
+   *
+   * <li>The sub-field mask for {@code contact_info.mailing_address} would be an {@link
+   * #allowAll(Message)}.
+   *
+   * <li>The sub-field mask for {@code name} would throw an {@code IllegalArugmentException} since
+   * {@code name} is not a message
+   *
+   * <li>The sub-field mask for {@code preferences} would be an {@link #allowNone(Message)}
+   * </ul>
    *
    * @throws IllegalArgumentException if the {@code path}'s {@linkplain
    *     FieldPath#getDescriptorForType() type} is not equal to this {@code FieldMask}'s {@linkplain
@@ -178,6 +226,9 @@ public final class FieldMask<M extends Message> {
   /**
    * Converts this to a {@code FieldMask} to a {@linkplain com.google.protobuf.util.FieldMaskUtil#normalize(com.google.protobuf.FieldMask)
    * normalized} {@link com.google.protobuf.FieldMask}.
+   *
+   * If this {@code FieldMask} is {@link #allowAll(Message)}, then the returned value will be
+   * absent. Otherwise, the returned value will be present.
    */
   public final Optional<com.google.protobuf.FieldMask> toProto() {
     if (root.children == null) {
@@ -241,7 +292,7 @@ public final class FieldMask<M extends Message> {
      * Add the specified {@code path} to this {@code Builder}.
      *
      * If the {@code path} ends in a {@linkplain JavaType#MESSAGE message}, all of its sub-fields
-     * will be recursively included.
+     * are implicitly included.
      *
      * @throws IllegalArgumentException if the {@code field}'s {@linkplain
      *     FieldDescriptor#getMessageType() type} does not match the {@code subFieldMask}'s
