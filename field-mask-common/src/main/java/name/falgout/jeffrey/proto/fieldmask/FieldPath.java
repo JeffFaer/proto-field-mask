@@ -119,6 +119,11 @@ public abstract class FieldPath<M extends Message> {
     return getPath().stream().map(FieldDescriptor::getName).collect(joining(FIELD_PATH_SEPARATOR));
   }
 
+  /**
+   * Safely casts this {@code FieldPath} to the specified {@code type}.
+   *
+   * This is useful if you have a {@code FieldPath<?>} and you want to reify its generic parameter.
+   */
   public final <N extends Message> FieldPath<N> castTo(Class<N> type) {
     return castTo(Internal.getDefaultInstance(type).getDescriptorForType());
   }

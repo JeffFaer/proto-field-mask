@@ -132,14 +132,8 @@ public final class FieldMask<M extends Message> {
    *
    * A {@code FieldPath} is included in this {@code FieldMask} if it is directly contained by this
    * {@code FieldMask} or any of its sub-fields are contained by this {@code FieldMask}.
-   *
-   * @throws IllegalArgumentException if the {@code path}'s {@linkplain
-   *     FieldPath#getDescriptorForType() type} is not equal to this {@code FieldMask}'s {@linkplain
-   *     #getDescriptorForType() type}
    */
-  public boolean contains(FieldPath<?> path) {
-    Preconditions.checkArgument(path.getDescriptorForType().equals(descriptor));
-
+  public boolean contains(FieldPath<M> path) {
     Node node = root;
     for (FieldDescriptor field : path.getPath()) {
       if (node.children == null) {
@@ -200,14 +194,10 @@ public final class FieldMask<M extends Message> {
    * <li>The sub-field mask for {@code preferences} would be an {@link #allowNone(Class)}
    * </ul>
    *
-   * @throws IllegalArgumentException if the {@code path}'s {@linkplain
-   *     FieldPath#getDescriptorForType() type} is not equal to this {@code FieldMask}'s {@linkplain
-   *     #getDescriptorForType() type} or if the {@code path} does not {@linkplain
+   * @throws IllegalArgumentException if the {@code path} does not {@linkplain
    *     FieldPath#getLastField() terminate} in a {@linkplain JavaType#MESSAGE message}
    */
-  public final FieldMask<?> getSubFieldMask(FieldPath<?> path) {
-    Preconditions.checkArgument(path.getDescriptorForType().equals(descriptor));
-
+  public final FieldMask<?> getSubFieldMask(FieldPath<M> path) {
     if (path.getPath().isEmpty()) {
       return this;
     }
@@ -251,6 +241,11 @@ public final class FieldMask<M extends Message> {
     return Optional.of(fieldMask.build());
   }
 
+  /**
+   * Safely casts this {@code FieldMask} to the specified {@code type}.
+   *
+   * This is useful if you have a {@code FieldMask<?>} and you want to reify its generic parameter.
+   */
   public final <N extends Message> FieldMask<N> castTo(Class<N> type) {
     return castTo(Internal.getDefaultInstance(type).getDescriptorForType());
   }

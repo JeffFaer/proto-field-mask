@@ -122,14 +122,6 @@ class FieldMaskTest {
   }
 
   @Test
-  void contains_checksDescriptorType() {
-    FieldMask<Foo> mask = FieldMask.allowAll(Foo.class);
-    FieldPath<Bar> path = FieldPath.create(Bar.class, "string_field");
-
-    assertThrows(IllegalArgumentException.class, () -> mask.contains(path));
-  }
-
-  @Test
   void contains() {
     FieldMask<Foo> fooMask =
         FieldMask.of(
@@ -173,14 +165,6 @@ class FieldMaskTest {
     FieldMask<Foo> mask = FieldMask.of(FieldPath.create(Foo.class, "bar_field"));
 
     assertThat(mask.getSubFieldMask(FieldPath.create(Foo.class))).isSameAs(mask);
-  }
-
-  @Test
-  void getSubFieldMask_checksDescriptorType() {
-    FieldMask<Foo> mask = FieldMask.allowAll(Foo.class);
-    FieldPath<Bar> path = FieldPath.create(Bar.class, "string_field");
-
-    assertThrows(IllegalArgumentException.class, () -> mask.getSubFieldMask(path));
   }
 
   @Test
