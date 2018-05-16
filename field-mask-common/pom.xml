@@ -58,21 +58,6 @@
       <plugin>
         <groupId>com.github.os72</groupId>
         <artifactId>protoc-jar-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>generate-test-sources</phase>
-            <goals>
-              <goal>run</goal>
-            </goals>
-            <configuration>
-              <inputDirectories>
-                <include>src/test/protobuf</include>
-              </inputDirectories>
-              <outputDirectory>target/generated-test-sources/java</outputDirectory>
-              <addSources>test</addSources>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

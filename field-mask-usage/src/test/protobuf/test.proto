@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+option java_package = "name.falgout.jeffrey.proto.fieldmask.usage";
+
+message Root {
+    optional Child child_1 = 1;
+    optional Child child_2 = 2;
+}
+
+message Child {
+    optional int32 value = 1;
+}

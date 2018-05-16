@@ -9,6 +9,7 @@
   <version>1.0-SNAPSHOT</version>
   <modules>
     <module>field-mask-common</module>
+    <module>field-mask-usage</module>
   </modules>
   <packaging>pom</packaging>
 
@@ -16,12 +17,19 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <java.version>1.8</java.version>
     <protobuf.version>3.5.1</protobuf.version>
-    <autovalue.version>1.6</autovalue.version>
+    <auto-value.version>1.6</auto-value.version>
     <truth.version>0.40</truth.version>
   </properties>
 
   <dependencyManagement>
     <dependencies>
+      <!-- Project dependencies -->
+      <dependency>
+        <groupId>name.falgout.jeffrey.proto</groupId>
+        <artifactId>field-mask-common</artifactId>
+        <version>1.0-SNAPSHOT</version>
+      </dependency>
+
       <!-- Compile dependencies -->
       <dependency>
         <groupId>com.google.protobuf</groupId>
@@ -38,20 +46,32 @@
         <artifactId>guava</artifactId>
         <version>25.0-jre</version>
       </dependency>
+      <dependency>
+        <groupId>com.google.auto</groupId>
+        <artifactId>auto-common</artifactId>
+        <version>0.10</version>
+      </dependency>
 
       <!-- Provided dependencies -->
       <dependency>
         <groupId>com.google.auto.value</groupId>
         <artifactId>auto-value</artifactId>
-        <version>${autovalue.version}</version>
+        <version>${auto-value.version}</version>
         <scope>provided</scope>
       </dependency>
       <dependency>
         <groupId>com.google.auto.value</groupId>
         <artifactId>auto-value-annotations</artifactId>
-        <version>${autovalue.version}</version>
+        <version>${auto-value.version}</version>
         <scope>provided</scope>
       </dependency>
+      <dependency>
+        <groupId>com.google.auto.service</groupId>
+        <artifactId>auto-service</artifactId>
+        <version>1.0-rc4</version>
+        <scope>provided</scope>
+      </dependency>
+
 
       <!-- Test dependencies -->
       <dependency>
@@ -98,6 +118,21 @@
           <groupId>com.github.os72</groupId>
           <artifactId>protoc-jar-maven-plugin</artifactId>
           <version>3.5.1.1</version>
+          <executions>
+            <execution>
+              <phase>generate-test-sources</phase>
+              <goals>
+                <goal>run</goal>
+              </goals>
+              <configuration>
+                <inputDirectories>
+                  <include>src/test/protobuf</include>
+                </inputDirectories>
+                <outputDirectory>target/generated-test-sources/java</outputDirectory>
+                <addSources>test</addSources>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
