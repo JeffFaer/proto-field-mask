@@ -43,4 +43,20 @@ class InvalidUse {
     // BUG: Diagnostic contains: value
     secondChild.getValue();
   }
+
+  void multipleAnnotatedParameters(
+      @RequiresFields("first_child") Root firstRoot,
+      @RequiresFields("second_child") Root secondRoot) {
+    firstRoot.getFirstChild();
+    secondRoot.getSecondChild();
+
+    Root tmp = firstRoot;
+    firstRoot = secondRoot;
+    secondRoot = tmp;
+
+    // BUG: Diagnostic contains: first_child
+    firstRoot.getFirstChild();
+    // BUG: Diagnostic contains: second_child
+    secondRoot.getSecondChild();
+  }
 }

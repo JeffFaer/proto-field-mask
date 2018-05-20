@@ -29,4 +29,18 @@ class ValidUse {
     Child secondChild = child;
     secondChild.getDescription();
   }
+
+  void multipleAnnotatedParameters(
+      @RequiresFields("first_child") Root firstRoot,
+      @RequiresFields("second_child") Root secondRoot) {
+    firstRoot.getFirstChild();
+    secondRoot.getSecondChild();
+
+    Root tmp = firstRoot;
+    firstRoot = secondRoot;
+    secondRoot = tmp;
+
+    firstRoot.getSecondChild();
+    secondRoot.getFirstChild();
+  }
 }
