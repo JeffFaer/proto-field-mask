@@ -5,6 +5,7 @@ import static com.google.common.collect.MoreCollectors.toOptional;
 import static java.util.stream.Collectors.toMap;
 import static name.falgout.jeffrey.proto.fieldmask.FieldMask.toFieldMask;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.CaseFormat;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -44,6 +45,7 @@ import name.falgout.jeffrey.proto.ProtoDescriptor;
 import name.falgout.jeffrey.proto.fieldmask.FieldMask;
 import name.falgout.jeffrey.proto.fieldmask.FieldPath;
 import name.falgout.jeffrey.proto.fieldmask.usage.RequiresFields;
+import name.falgout.jeffrey.proto.fieldmask.usage.processor.FieldUsageValidator.FieldMaskWithSource.Source;
 
 @BugPattern(
     name = "ProtoFieldUsageValidator",
@@ -53,11 +55,12 @@ import name.falgout.jeffrey.proto.fieldmask.usage.RequiresFields;
 public final class FieldUsageValidator extends BugChecker implements MethodTreeMatcher {
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-    Map<Name, FieldMask<?>> fieldMasks =
+    Map<Name, FieldMaskWithSource> fieldMasks =
         tree.getParameters()
             .stream()
             .map(var ->
-                getFieldMask(ASTHelpers.getSymbol(var))
+                getRequiredFields(ASTHelpers.getSymbol(var))
+                    .map(FieldMaskWithSource::createFromAnnotation)
                     .map(fieldMask -> new SimpleImmutableEntry<>(var.getName(), fieldMask)))
             .flatMap(Streams::stream)
             .collect(toMap(Entry::getKey, Entry::getValue));
@@ -70,7 +73,7 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
     return Description.NO_MATCH;
   }
 
-  private static Optional<FieldMask<?>> getFieldMask(Symbol sym) {
+  private static Optional<FieldMask<?>> getRequiredFields(Symbol sym) {
     RequiresFields requiresFields = sym.getAnnotation(RequiresFields.class);
     if (requiresFields == null) {
       return Optional.empty();
@@ -92,9 +95,9 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
   }
 
   private class FieldMaskUsageVisitor extends
-      TreeScanner<ImmutableList<Description>, Map<Name, FieldMask<?>>> {
+      TreeScanner<ImmutableList<Description>, Map<Name, FieldMaskWithSource>> {
     @Override
-    public ImmutableList<Description> scan(Tree tree, Map<Name, FieldMask<?>> fieldMasks) {
+    public ImmutableList<Description> scan(Tree tree, Map<Name, FieldMaskWithSource> fieldMasks) {
       ImmutableList<Description> result = super.scan(tree, fieldMasks);
       return result == null ? ImmutableList.of() : result;
     }
@@ -110,30 +113,58 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
 
     @Override
     public ImmutableList<Description> visitVariable(
-        VariableTree node, Map<Name, FieldMask<?>> fieldMasks) {
-      FieldMaskRetriever.INSTANCE.scan(node.getInitializer(), fieldMasks)
-          .ifPresent(fieldMask -> fieldMasks.put(node.getName(), fieldMask));
-
-      return ImmutableList.of();
+        VariableTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
+      return visitAssignment(node, node.getName(), node.getInitializer(), fieldMasks);
     }
 
     @Override
     public ImmutableList<Description> visitAssignment(
-        AssignmentTree node, Map<Name, FieldMask<?>> fieldMasks) {
+        AssignmentTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
       if (!(node.getVariable() instanceof IdentifierTree)) {
         return ImmutableList.of();
       }
 
       IdentifierTree variable = (IdentifierTree) node.getVariable();
-      FieldMaskRetriever.INSTANCE.scan(node.getExpression(), fieldMasks)
-          .ifPresent(fieldMask -> fieldMasks.put(variable.getName(), fieldMask));
+      return visitAssignment(node, variable.getName(), node.getExpression(), fieldMasks);
+    }
 
+    private ImmutableList<Description> visitAssignment(
+        Tree node,
+        Name variableName,
+        ExpressionTree initializer,
+        Map<Name, FieldMaskWithSource> fieldMasks) {
+      Optional<FieldMaskWithSource> newFieldMask =
+          FieldMaskRetriever.INSTANCE
+              .scan(initializer, fieldMasks)
+              .map(FieldMaskWithSource::createFromAssignment);
+
+      if (fieldMasks.containsKey(variableName)) {
+        if (!newFieldMask.isPresent()) {
+          return ImmutableList.of(
+              buildDescription(node)
+                  .setMessage("Cannot assign RHS without FieldMask.")
+                  .build());
+        }
+
+        FieldMaskWithSource originalFieldMask = fieldMasks.get(variableName);
+        FieldMask<?> newMask = newFieldMask.get().getFieldMask();
+
+        if (originalFieldMask.getSource() == Source.ANNOTATION
+            && !containsAll(newMask, originalFieldMask.getFieldMask())) {
+          return ImmutableList.of(
+              buildDescription(node)
+                  .setMessage("RHS has incompatible FieldMask.")
+                  .build());
+        }
+      }
+
+      newFieldMask.ifPresent(fieldMask -> fieldMasks.put(variableName, fieldMask));
       return ImmutableList.of();
     }
 
     @Override
     public ImmutableList<Description> visitMemberSelect(
-        MemberSelectTree node, Map<Name, FieldMask<?>> fieldMasks) {
+        MemberSelectTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
       Optional<FieldMask<?>> fieldMask =
           FieldMaskRetriever.INSTANCE.scan(node.getExpression(), fieldMasks);
 
@@ -156,7 +187,7 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
 
     @Override
     public ImmutableList<Description> visitMethodInvocation(
-        MethodInvocationTree node, Map<Name, FieldMask<?>> fieldMasks) {
+        MethodInvocationTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
       MethodSymbol method = ASTHelpers.getSymbol(node);
       // TODO: varargs
       Preconditions.checkState(method.getParameters().size() == node.getArguments().size());
@@ -167,11 +198,14 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
         VarSymbol parameter = method.getParameters().get(i);
         ExpressionTree argument = node.getArguments().get(i);
 
-        Optional<FieldMask<?>> expectedFieldMask = getFieldMask(parameter);
+        Optional<FieldMask<?>> expectedFieldMask = getRequiredFields(parameter);
+        if (!expectedFieldMask.isPresent()) {
+          continue;
+        }
+
         Optional<FieldMask<?>> actualFieldMask =
             FieldMaskRetriever.INSTANCE.scan(argument, fieldMasks);
-
-        if (!expectedFieldMask.isPresent() || !actualFieldMask.isPresent()) {
+        if (!actualFieldMask.isPresent()) {
           continue;
         }
 
@@ -179,7 +213,7 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
           // TODO: Better error message.
           descriptions.add(
               buildDescription(argument)
-                  .setMessage("Argument does not have correct FieldMask.")
+                  .setMessage("Argument has incompatible FieldMask.")
                   .build());
         }
       }
@@ -194,11 +228,11 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
   }
 
   private static class FieldMaskRetriever
-      extends TreeScanner<Optional<FieldMask<?>>, Map<Name, FieldMask<?>>> {
+      extends TreeScanner<Optional<FieldMask<?>>, Map<Name, FieldMaskWithSource>> {
     private static final FieldMaskRetriever INSTANCE = new FieldMaskRetriever();
 
     @Override
-    public Optional<FieldMask<?>> scan(Tree tree, Map<Name, FieldMask<?>> fieldMasks) {
+    public Optional<FieldMask<?>> scan(Tree tree, Map<Name, FieldMaskWithSource> fieldMasks) {
       Optional<FieldMask<?>> fieldMask = super.scan(tree, fieldMasks);
       return fieldMask == null ? Optional.empty() : fieldMask;
     }
@@ -213,13 +247,14 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
 
     @Override
     public Optional<FieldMask<?>> visitIdentifier(
-        IdentifierTree node, Map<Name, FieldMask<?>> fieldMasks) {
-      return Optional.ofNullable(fieldMasks.get(node.getName()));
+        IdentifierTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
+      return Optional.ofNullable(fieldMasks.get(node.getName()))
+          .map(FieldMaskWithSource::getFieldMask);
     }
 
     @Override
     public Optional<FieldMask<?>> visitMemberSelect(
-        MemberSelectTree node, Map<Name, FieldMask<?>> fieldMasks) {
+        MemberSelectTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
       return scan(node.getExpression(), fieldMasks)
           .flatMap(fieldMask -> getSubFieldMask(fieldMask, node.getIdentifier()));
     }
@@ -243,5 +278,26 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
   private static String toProtoFieldName(String methodName) {
     String lowerSnakeCase = CaseFormat.LOWER_CAMEL.to(CaseFormat.LOWER_UNDERSCORE, methodName);
     return lowerSnakeCase.substring(lowerSnakeCase.indexOf('_') + 1);
+  }
+
+  @AutoValue
+  abstract static class FieldMaskWithSource {
+    static FieldMaskWithSource createFromAnnotation(FieldMask<?> fieldMask) {
+      return new AutoValue_FieldUsageValidator_FieldMaskWithSource(fieldMask, Source.ANNOTATION);
+    }
+
+    static FieldMaskWithSource createFromAssignment(FieldMask<?> fieldMask) {
+      return new AutoValue_FieldUsageValidator_FieldMaskWithSource(fieldMask, Source.ASSIGNMENT);
+
+    }
+
+    enum Source {
+      ANNOTATION,
+      ASSIGNMENT,
+    }
+
+    abstract FieldMask<?> getFieldMask();
+
+    abstract Source getSource();
   }
 }

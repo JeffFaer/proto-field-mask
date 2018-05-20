@@ -44,20 +44,41 @@ class InvalidUse {
     secondChild.getValue();
   }
 
+  void cannotReassignExplicitlyAnnotatedVariable(
+      @RequiresFields("first_child") Root firstRoot,
+      @RequiresFields("second_child") Root secondRoot,
+      Root unannotatedRoot,
+      @RequiresFields("description") Child childDescription) {
+    // BUG: Diagnostic contains: RHS has incompatible FieldMask
+    firstRoot = secondRoot;
+
+    // BUG: Diagnostic contains: RHS without FieldMask
+    secondRoot = unannotatedRoot;
+
+    // BUG: Diagnostic contains: RHS has incompatible FieldMask
+    childDescription = firstRoot.getSecondChild();
+  }
+
   void multipleAnnotatedParameters(
       @RequiresFields("first_child") Root firstRoot,
       @RequiresFields("second_child") Root secondRoot) {
     firstRoot.getFirstChild();
     secondRoot.getSecondChild();
 
-    Root tmp = firstRoot;
-    firstRoot = secondRoot;
-    secondRoot = tmp;
+    Root tmp1 = firstRoot;
+    Root tmp2 = secondRoot;
+
+    tmp1.getFirstChild();
+    tmp2.getSecondChild();
+
+    Root tmp3 = tmp1;
+    tmp1 = tmp2;
+    tmp2 = tmp3;
 
     // BUG: Diagnostic contains: first_child
-    firstRoot.getFirstChild();
+    tmp1.getFirstChild();
     // BUG: Diagnostic contains: second_child
-    secondRoot.getSecondChild();
+    tmp2.getSecondChild();
   }
 
   void needsFirstChild(@RequiresFields("first_child") Root root) {}
@@ -65,9 +86,9 @@ class InvalidUse {
   void needsFirstChildValue(@RequiresFields("first_child.value") Root root) {}
 
   void checksMethodCalls(@RequiresFields("first_child.description") Root root) {
-    // BUG: Diagnostic contains: Argument does not have correct FieldMask
+    // BUG: Diagnostic contains: Argument has incompatible FieldMask
     needsFirstChild(root);
-    // BUG: Diagnostic contains: Argument does not have correct FieldMask
+    // BUG: Diagnostic contains: Argument has incompatible FieldMask
     needsFirstChildValue(root);
   }
 }

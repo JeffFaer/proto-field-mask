@@ -36,12 +36,24 @@ class ValidUse {
     firstRoot.getFirstChild();
     secondRoot.getSecondChild();
 
-    Root tmp = firstRoot;
-    firstRoot = secondRoot;
-    secondRoot = tmp;
+    Root tmp1 = firstRoot;
+    Root tmp2 = secondRoot;
 
-    firstRoot.getSecondChild();
-    secondRoot.getFirstChild();
+    tmp1.getFirstChild();
+    tmp2.getSecondChild();
+
+    Root tmp3 = tmp1;
+    tmp1 = tmp2;
+    tmp2 = tmp3;
+
+    tmp1.getSecondChild();
+    tmp2.getFirstChild();
+  }
+
+  void reassigningExplicityAnnotatedVariables(
+      @RequiresFields("first_child") Root firstRoot,
+      @RequiresFields("value") Child childValue) {
+    childValue = firstRoot.getFirstChild();
   }
 
   void needsFirstChild(@RequiresFields("first_child") Root root) {}
