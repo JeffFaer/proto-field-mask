@@ -43,4 +43,13 @@ class ValidUse {
     firstRoot.getSecondChild();
     secondRoot.getFirstChild();
   }
+
+  void needsFirstChild(@RequiresFields("first_child") Root root) {}
+
+  void needsFirstChildValue(@RequiresFields("first_child.value") Root root) {}
+
+  void checksMethodCalls(@RequiresFields("first_child") Root root) {
+    needsFirstChild(root);
+    needsFirstChildValue(root);
+  }
 }

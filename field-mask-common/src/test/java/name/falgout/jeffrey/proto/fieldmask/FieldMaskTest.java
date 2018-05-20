@@ -144,6 +144,47 @@ class FieldMaskTest {
   }
 
   @Test
+  void containsAll() {
+    FieldMask<Foo> haystack =
+        FieldMask.of(
+            FieldPath.create(FOO, "int_field"),
+            FieldPath.create(FOO, "bar_field"));
+    FieldMask<Foo> needle1 = FieldMask.of(FieldPath.create(FOO, "int_field"));
+    FieldMask<Foo> needle2 = FieldMask.of(FieldPath.create(FOO, "bar_field.string_field"));
+    FieldMask<Foo> needle3 =
+        FieldMask.of(
+            FieldPath.create(FOO, "int_field"),
+            FieldPath.create(FOO, "bar_field"));
+    FieldMask<Foo> needle4 = FieldMask.of(FieldPath.create(FOO, "baz_field"));
+
+    FieldMask<Foo> allowAll = FieldMask.allowAll(FOO);
+    FieldMask<Foo> allowNone = FieldMask.allowNone(FOO);
+
+    assertThat(haystack.containsAll(needle1)).isTrue();
+    assertThat(haystack.containsAll(needle2)).isTrue();
+    assertThat(haystack.containsAll(needle3)).isTrue();
+    assertThat(haystack.containsAll(needle4)).isFalse();
+    assertThat(haystack.containsAll(allowAll)).isFalse();
+    assertThat(haystack.containsAll(allowNone)).isTrue();
+
+    assertThat(allowAll.containsAll(haystack)).isTrue();
+    assertThat(allowAll.containsAll(needle1)).isTrue();
+    assertThat(allowAll.containsAll(needle2)).isTrue();
+    assertThat(allowAll.containsAll(needle3)).isTrue();
+    assertThat(allowAll.containsAll(needle4)).isTrue();
+    assertThat(allowAll.containsAll(allowAll)).isTrue();
+    assertThat(allowAll.containsAll(allowNone)).isTrue();
+
+    assertThat(allowNone.containsAll(haystack)).isFalse();
+    assertThat(allowNone.containsAll(needle1)).isFalse();
+    assertThat(allowNone.containsAll(needle2)).isFalse();
+    assertThat(allowNone.containsAll(needle3)).isFalse();
+    assertThat(allowNone.containsAll(needle4)).isFalse();
+    assertThat(allowNone.containsAll(allowAll)).isFalse();
+    assertThat(allowNone.containsAll(allowNone)).isTrue();
+  }
+
+  @Test
   void getSubFieldMask() {
     FieldMask<Foo> mask =
         FieldMask.of(

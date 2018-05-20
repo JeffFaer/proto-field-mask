@@ -59,4 +59,15 @@ class InvalidUse {
     // BUG: Diagnostic contains: second_child
     secondRoot.getSecondChild();
   }
+
+  void needsFirstChild(@RequiresFields("first_child") Root root) {}
+
+  void needsFirstChildValue(@RequiresFields("first_child.value") Root root) {}
+
+  void checksMethodCalls(@RequiresFields("first_child.description") Root root) {
+    // BUG: Diagnostic contains: Argument does not have correct FieldMask
+    needsFirstChild(root);
+    // BUG: Diagnostic contains: Argument does not have correct FieldMask
+    needsFirstChildValue(root);
+  }
 }

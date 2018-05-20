@@ -6,6 +6,7 @@ import static java.util.stream.Collectors.toMap;
 import static name.falgout.jeffrey.proto.fieldmask.FieldMask.toFieldMask;
 
 import com.google.common.base.CaseFormat;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.errorprone.BugPattern;
@@ -19,12 +20,17 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Message;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Collection;
@@ -51,7 +57,7 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
         tree.getParameters()
             .stream()
             .map(var ->
-                getFieldMask(var)
+                getFieldMask(ASTHelpers.getSymbol(var))
                     .map(fieldMask -> new SimpleImmutableEntry<>(var.getName(), fieldMask)))
             .flatMap(Streams::stream)
             .collect(toMap(Entry::getKey, Entry::getValue));
@@ -64,18 +70,13 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
     return Description.NO_MATCH;
   }
 
-  private static Optional<FieldMask<?>> getFieldMask(Tree tree) {
-    Type type = ASTHelpers.getType(tree);
-    if (type == null) {
-      return Optional.empty();
-    }
-
-    RequiresFields requiresFields = ASTHelpers.getAnnotation(tree, RequiresFields.class);
+  private static Optional<FieldMask<?>> getFieldMask(Symbol sym) {
+    RequiresFields requiresFields = sym.getAnnotation(RequiresFields.class);
     if (requiresFields == null) {
       return Optional.empty();
     }
 
-    ProtoDescriptor<?> descriptor = getDescriptor(type);
+    ProtoDescriptor<?> descriptor = getDescriptor(sym.asType());
     return Optional.of(Stream.of(requiresFields.value()).collect(toFieldMask(descriptor)));
   }
 
@@ -152,6 +153,44 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
               .setMessage("FieldMask does not contain " + fieldName)
               .build());
     }
+
+    @Override
+    public ImmutableList<Description> visitMethodInvocation(
+        MethodInvocationTree node, Map<Name, FieldMask<?>> fieldMasks) {
+      MethodSymbol method = ASTHelpers.getSymbol(node);
+      // TODO: varargs
+      Preconditions.checkState(method.getParameters().size() == node.getArguments().size());
+
+      ImmutableList.Builder<Description> descriptions = ImmutableList.builder();
+
+      for (int i = 0; i < method.getParameters().size(); i++) {
+        VarSymbol parameter = method.getParameters().get(i);
+        ExpressionTree argument = node.getArguments().get(i);
+
+        Optional<FieldMask<?>> expectedFieldMask = getFieldMask(parameter);
+        Optional<FieldMask<?>> actualFieldMask =
+            FieldMaskRetriever.INSTANCE.scan(argument, fieldMasks);
+
+        if (!expectedFieldMask.isPresent() || !actualFieldMask.isPresent()) {
+          continue;
+        }
+
+        if (!containsAll(actualFieldMask.get(), expectedFieldMask.get())) {
+          // TODO: Better error message.
+          descriptions.add(
+              buildDescription(argument)
+                  .setMessage("Argument does not have correct FieldMask.")
+                  .build());
+        }
+      }
+
+      return reduce(super.visitMethodInvocation(node, fieldMasks), descriptions.build());
+    }
+  }
+
+  private static <M extends Message> boolean containsAll(
+      FieldMask<M> haystack, FieldMask<?> needle) {
+    return haystack.containsAll(needle.castTo(haystack.getDescriptorForType()));
   }
 
   private static class FieldMaskRetriever

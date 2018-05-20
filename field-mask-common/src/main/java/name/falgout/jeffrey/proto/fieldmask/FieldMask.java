@@ -11,6 +11,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Message;
 import java.util.Comparator;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
@@ -123,6 +124,27 @@ public final class FieldMask<M extends Message> {
           });
     }
 
+    boolean containsAll(Node other) {
+      if (children == null) {
+        return true;
+      }
+      if (other.children == null) {
+        return false;
+      }
+
+      for (Entry<FieldDescriptor, Node> child : other.children.entrySet()) {
+        FieldDescriptor field = child.getKey();
+        Node childNode = child.getValue();
+
+        if (!children.containsKey(field)
+            || !children.get(field).containsAll(childNode)) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+
     @Override
     public boolean equals(Object o) {
       if (this == o) {
@@ -194,6 +216,10 @@ public final class FieldMask<M extends Message> {
     }
 
     return node.children == null || !node.children.isEmpty();
+  }
+
+  public boolean containsAll(FieldMask<M> other) {
+    return root.containsAll(other.root);
   }
 
   /**
