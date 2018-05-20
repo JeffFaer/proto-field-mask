@@ -11,6 +11,10 @@
   </parent>
   <artifactId>field-mask-usage</artifactId>
 
+  <properties>
+    <error-prone.version>2.3.1</error-prone.version>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>name.falgout.jeffrey.proto</groupId>
@@ -33,6 +37,17 @@
       <groupId>com.google.guava</groupId>
       <artifactId>guava</artifactId>
     </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_check_api</artifactId>
+      <version>${error-prone.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_annotation</artifactId>
+      <version>${error-prone.version}</version>
+    </dependency>
+
 
     <dependency>
       <groupId>com.google.auto.service</groupId>
@@ -45,12 +60,32 @@
       <version>0.2.0</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_core</artifactId>
+      <version>${error-prone.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.errorprone</groupId>
+      <artifactId>error_prone_test_helpers</artifactId>
+      <version>${error-prone.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
     <testResources>
       <testResource>
         <directory>src/test/java</directory>
+      </testResource>
+      <testResource>
+        <directory>src/test/resources</directory>
       </testResource>
     </testResources>
 

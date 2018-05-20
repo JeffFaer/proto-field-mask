@@ -18,7 +18,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
-import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -32,9 +31,13 @@ import name.falgout.jeffrey.proto.ProtoDescriptor;
 import name.falgout.jeffrey.proto.fieldmask.usage.RequiresFields;
 
 @AutoService(Processor.class)
-@SupportedSourceVersion(SourceVersion.RELEASE_8)
 public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
   public RequiresFieldsValidator() {}
+
+  @Override
+  public SourceVersion getSupportedSourceVersion() {
+    return SourceVersion.latest();
+  }
 
   @Override
   protected Iterable<? extends ProcessingStep> initSteps() {

@@ -162,6 +162,18 @@ public final class FieldMask<M extends Message> {
   }
 
   /**
+   * Determines whether the given {@code fieldPath} is included in this {@code FieldMask}.
+   *
+   * @throws IllegalArgumentException if the {@code fieldPath} is not a valid path for the proto
+   *     {@linkplain #getDescriptorForType() type}
+   * @see #contains(FieldPath)
+   */
+  public boolean contains(String fieldPath) {
+    FieldPath<M> path = FieldPath.create(getDescriptorForType(), fieldPath);
+    return contains(path);
+  }
+
+  /**
    * Determines whether the given {@link FieldPath} is included in this {@code FieldMask}.
    *
    * A {@code FieldPath} is included in this {@code FieldMask} if it is directly contained by this

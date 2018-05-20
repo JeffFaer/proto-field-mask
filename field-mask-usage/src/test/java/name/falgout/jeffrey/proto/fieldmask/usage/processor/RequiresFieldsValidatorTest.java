@@ -9,11 +9,11 @@ import name.falgout.jeffrey.testing.processor.UseProcessor;
 @UseProcessor(RequiresFieldsValidator.class)
 class RequiresFieldsValidatorTest {
   class ValidFieldMasks {
-    void test1(@RequiresFields("child_1") Root root) {}
+    void test1(@RequiresFields("first_child") Root root) {}
 
-    void test2(@RequiresFields({"child_1", "child_2"}) Root root) {}
+    void test2(@RequiresFields({"first_child", "second_child"}) Root root) {}
 
-    void test3(@RequiresFields({"child_1.value", "child_2"}) Root root) {}
+    void test3(@RequiresFields({"first_child.value", "second_child"}) Root root) {}
   }
 
   class InvalidFieldMasks {
