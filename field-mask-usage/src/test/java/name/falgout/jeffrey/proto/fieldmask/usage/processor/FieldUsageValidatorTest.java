@@ -11,15 +11,19 @@ class FieldUsageValidatorTest {
 
   @Test
   void validUse(TestInfo testInfo) {
-    runTest(testInfo);
+    runTest(testInfo, "RootUtils.java");
   }
 
   @Test
   void invalidUse(TestInfo testInfo) {
-    runTest(testInfo);
+    runTest(testInfo, "RootUtils.java");
   }
 
-  private void runTest(TestInfo test) {
+  private void runTest(TestInfo test, String... extraSourceFiles) {
+    for (String sourceFile : extraSourceFiles) {
+      compiler.addSourceFile(getPath(sourceFile));
+    }
+
     String fileName =
         CaseFormat.LOWER_CAMEL.to(
             CaseFormat.UPPER_CAMEL,

@@ -57,13 +57,9 @@ class ValidUse {
     childValue.getValue();
   }
 
-  void needsFirstChild(@RequiresFields("first_child") Root root) {}
-
-  void needsFirstChildValue(@RequiresFields("first_child.value") Root root) {}
-
   void checksMethodCalls(@RequiresFields("first_child") Root root) {
-    needsFirstChild(root);
-    needsFirstChildValue(root);
+    RootUtils.needsFirstChild(root);
+    RootUtils.needsFirstChildValue(root);
   }
 
   void localVariables(@RequiresFields("first_child") Root root) {

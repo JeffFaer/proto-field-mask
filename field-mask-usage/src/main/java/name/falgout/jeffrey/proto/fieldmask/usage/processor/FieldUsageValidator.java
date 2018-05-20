@@ -144,15 +144,15 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
      * Local variable annotations aren't checked by Annotation Processors, so we have to do it here,
      * just in case.
      */
-    private boolean hasValidRequiresFields(Element symbol) {
-      if (symbol.getAnnotation(RequiresFields.class) == null) {
+    private boolean hasValidRequiresFields(Element element) {
+      if (element.getAnnotation(RequiresFields.class) == null) {
         return false;
       }
 
       ProcessingEnvironment processingEnv = JavacProcessingEnvironment.instance(state.context);
       RequiresFieldsProcessingStep step = new RequiresFieldsProcessingStep(processingEnv);
       try {
-        return step.validateRequiresFields(symbol);
+        return step.validateRequiresFields(element);
       } catch (ClassNotFoundException e) {
         throw new IllegalStateException(e);
       }

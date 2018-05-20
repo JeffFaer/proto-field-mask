@@ -91,9 +91,9 @@ class InvalidUse {
 
   void checksMethodCalls(@RequiresFields("first_child.description") Root root) {
     // BUG: Diagnostic contains: Argument has incompatible FieldMask
-    needsFirstChild(root);
+    RootUtils.needsFirstChild(root);
     // BUG: Diagnostic contains: Argument has incompatible FieldMask
-    needsFirstChildValue(root);
+    RootUtils.needsFirstChildValue(root);
   }
 
   class LocalVariables {
