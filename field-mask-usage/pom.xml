@@ -43,6 +43,7 @@
       <groupId>name.falgout.jeffrey.testing</groupId>
       <artifactId>annotation-processor-testing-junit5</artifactId>
       <version>0.2.0</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
 

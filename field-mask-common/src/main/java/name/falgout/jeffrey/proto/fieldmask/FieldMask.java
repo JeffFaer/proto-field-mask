@@ -1,5 +1,7 @@
 package name.falgout.jeffrey.proto.fieldmask;
 
+import static java.util.stream.Collectors.toSet;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -13,6 +15,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
@@ -69,6 +73,19 @@ public final class FieldMask<M extends Message> {
         .forEach(builder::addFieldPath);
 
     return builder.build();
+  }
+
+  public static <M extends Message> Collector<String, ?, FieldMask<M>> toFieldMask(Class<M> type) {
+    return toFieldMask(ProtoDescriptor.create(type));
+  }
+
+  public static <M extends Message> Collector<String, ?, FieldMask<M>> toFieldMask(
+      ProtoDescriptor<M> descriptor) {
+    return Collectors.mapping(path -> FieldPath.create(descriptor, path), toFieldMask());
+  }
+
+  public static <M extends Message> Collector<FieldPath<M>, ?, FieldMask<M>> toFieldMask() {
+    return Collectors.collectingAndThen(toSet(), fieldPaths -> new Builder<>(fieldPaths).build());
   }
 
   private static class Node {

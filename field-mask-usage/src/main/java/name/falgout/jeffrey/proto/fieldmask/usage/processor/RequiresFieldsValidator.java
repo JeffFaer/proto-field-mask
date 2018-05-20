@@ -6,7 +6,6 @@ import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.BasicAnnotationProcessor;
 import com.google.auto.common.MoreElements;
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -150,13 +149,10 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
     }
 
     private ProtoDescriptor<?> getDescriptor(TypeMirror type) throws ClassNotFoundException {
-      Preconditions.checkArgument(processingEnv.getTypeUtils().isSubtype(type, messageType));
-
       TypeElement typeElement = MoreElements.asType(((DeclaredType) type).asElement());
       Name binaryName = processingEnv.getElementUtils().getBinaryName(typeElement);
-      @SuppressWarnings("unchecked")
       Class<? extends Message> clazz =
-          (Class<? extends Message>) Class.forName(binaryName.toString());
+          Class.forName(binaryName.toString()).asSubclass(Message.class);
 
       return ProtoDescriptor.create(clazz);
     }
