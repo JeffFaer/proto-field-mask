@@ -9,4 +9,5 @@ message Root {
 
 message Child {
     optional int32 value = 1;
+    optional string description = 2;
 }

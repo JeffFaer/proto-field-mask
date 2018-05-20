@@ -18,10 +18,12 @@ import com.google.errorprone.util.ASTHelpers;
 import com.google.protobuf.Descriptors.FieldDescriptor;
 import com.google.protobuf.Descriptors.FieldDescriptor.JavaType;
 import com.google.protobuf.Message;
+import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Type;
 import java.util.AbstractMap.SimpleImmutableEntry;
@@ -103,6 +105,29 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
           .filter(Objects::nonNull)
           .flatMap(Collection::stream)
           .collect(toImmutableList());
+    }
+
+    @Override
+    public ImmutableList<Description> visitVariable(
+        VariableTree node, Map<Name, FieldMask<?>> fieldMasks) {
+      FieldMaskRetriever.INSTANCE.scan(node.getInitializer(), fieldMasks)
+          .ifPresent(fieldMask -> fieldMasks.put(node.getName(), fieldMask));
+
+      return ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<Description> visitAssignment(
+        AssignmentTree node, Map<Name, FieldMask<?>> fieldMasks) {
+      if (!(node.getVariable() instanceof IdentifierTree)) {
+        return ImmutableList.of();
+      }
+
+      IdentifierTree variable = (IdentifierTree) node.getVariable();
+      FieldMaskRetriever.INSTANCE.scan(node.getExpression(), fieldMasks)
+          .ifPresent(fieldMask -> fieldMasks.put(variable.getName(), fieldMask));
+
+      return ImmutableList.of();
     }
 
     @Override
