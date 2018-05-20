@@ -44,7 +44,7 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
     return ImmutableList.of(new RequiresFieldsProcessingStep(processingEnv));
   }
 
-  private static class RequiresFieldsProcessingStep implements ProcessingStep {
+  final static class RequiresFieldsProcessingStep implements ProcessingStep {
     private final ProcessingEnvironment processingEnv;
 
     private final TypeMirror messageType;
@@ -65,19 +65,12 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
     public Set<? extends Element> process(
         SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation) {
       return Stream.of(
-          process(elementsByAnnotation, RequiresFields.class, this::validateRequiresFields))
+          process(elementsByAnnotation, RequiresFields.class, element -> {
+            validateRequiresFields(element);
+            return true;
+          }))
           .flatMap(Collection::stream)
           .collect(toImmutableSet());
-    }
-
-    private ImmutableSet<Element> process(
-        SetMultimap<Class<? extends Annotation>, Element> elementsByAnnotation,
-        Class<? extends Annotation> annotationType,
-        UnconditionalElementProcessor processor) {
-      return process(elementsByAnnotation, annotationType, element -> {
-        processor.process(element);
-        return true;
-      });
     }
 
     private ImmutableSet<Element> process(
@@ -107,7 +100,10 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
       return deferredElements.build();
     }
 
-    private void validateRequiresFields(Element element) throws ClassNotFoundException {
+    /**
+     * @return whether the {@code @RequiresFields} annotation is valid
+     */
+    boolean validateRequiresFields(Element element) throws ClassNotFoundException {
       RequiresFields requiresFields = element.getAnnotation(RequiresFields.class);
       AnnotationMirror annotationMirror =
           MoreElements.getAnnotationMirror(element, RequiresFields.class).get();
@@ -118,7 +114,7 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
             "@RequiresFields cannot be empty.",
             element,
             annotationMirror);
-        return;
+        return false;
       }
 
       TypeMirror type = element.asType();
@@ -129,7 +125,7 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
             "@RequiresFields must be applied to subclasses of " + Message.class.getName(),
             element,
             annotationMirror);
-        return;
+        return false;
       }
 
       ProtoDescriptor<?> descriptor = getDescriptor(type);
@@ -146,9 +142,11 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
               element,
               annotationMirror,
               value);
-          return;
+          return false;
         }
       }
+
+      return true;
     }
 
     private ProtoDescriptor<?> getDescriptor(TypeMirror type) throws ClassNotFoundException {
@@ -162,12 +160,10 @@ public final class RequiresFieldsValidator extends BasicAnnotationProcessor {
   }
 
   @FunctionalInterface
-  private interface UnconditionalElementProcessor {
-    void process(Element element) throws Exception;
-  }
-
-  @FunctionalInterface
   private interface ElementProcessor {
+    /**
+     * @return {@code true} if the element was processed, {@code false} if it should be deferred
+     */
     boolean process(Element element) throws Exception;
   }
 }

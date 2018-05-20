@@ -57,6 +57,10 @@ class InvalidUse {
 
     // BUG: Diagnostic contains: RHS has incompatible FieldMask
     childDescription = firstRoot.getSecondChild();
+
+    childDescription = firstRoot.getFirstChild();
+    // BUG: Diagnostic contains: value
+    childDescription.getValue();
   }
 
   void multipleAnnotatedParameters(
@@ -90,5 +94,27 @@ class InvalidUse {
     needsFirstChild(root);
     // BUG: Diagnostic contains: Argument has incompatible FieldMask
     needsFirstChildValue(root);
+  }
+
+  class LocalVariables {
+    void validatesFieldMask(@RequiresFields("first_child") Root firstRoot) {
+      // BUG: Diagnostic contains: Invalid field path "invalid_field"
+      @RequiresFields("invalid_field") Root root;
+
+      root = firstRoot;
+    }
+
+    void localVariables(@RequiresFields({"first_child.value", "second_child"}) Root root) {
+      // BUG: Diagnostic contains: RHS has incompatible FieldMask
+      @RequiresFields("description") Child childDescription = root.getFirstChild();
+
+      @RequiresFields("description") Child childDescription2;
+      // BUG: Diagnostic contains: RHS has incompatible FieldMask
+      childDescription2 = root.getFirstChild();
+
+      childDescription = root.getSecondChild();
+      // BUG: Diagnostic contains: value
+      childDescription.getValue();
+    }
   }
 }

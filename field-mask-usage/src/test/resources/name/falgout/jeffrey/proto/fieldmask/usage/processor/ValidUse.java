@@ -54,6 +54,7 @@ class ValidUse {
       @RequiresFields("first_child") Root firstRoot,
       @RequiresFields("value") Child childValue) {
     childValue = firstRoot.getFirstChild();
+    childValue.getValue();
   }
 
   void needsFirstChild(@RequiresFields("first_child") Root root) {}
@@ -63,5 +64,10 @@ class ValidUse {
   void checksMethodCalls(@RequiresFields("first_child") Root root) {
     needsFirstChild(root);
     needsFirstChildValue(root);
+  }
+
+  void localVariables(@RequiresFields("first_child") Root root) {
+    @RequiresFields("value") Child childValue = root.getFirstChild();
+    childValue.getValue();
   }
 }

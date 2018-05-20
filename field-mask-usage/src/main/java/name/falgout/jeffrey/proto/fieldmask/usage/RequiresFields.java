@@ -9,7 +9,10 @@ import java.lang.annotation.Target;
  * Can be used to annotate a proto type with information about which fields will be accessed.
  */
 @Retention(RetentionPolicy.SOURCE)
-@Target(ElementType.PARAMETER)
+@Target({
+    ElementType.PARAMETER,
+    ElementType.LOCAL_VARIABLE,
+})
 public @interface RequiresFields {
   String[] value();
 }

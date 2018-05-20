@@ -24,7 +24,7 @@ class FieldUsageValidatorTest {
         CaseFormat.LOWER_CAMEL.to(
             CaseFormat.UPPER_CAMEL,
             test.getTestMethod().get().getName()) + ".java";
-    compiler.addSourceFile(getPath(fileName)).doTest();
+    compiler.addSourceFile(getPath(fileName)).matchAllDiagnostics().doTest();
   }
 
   private static String getPath(String fileName) {

@@ -33,6 +33,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import java.util.AbstractMap.SimpleImmutableEntry;
 import java.util.Collection;
 import java.util.Map;
@@ -40,12 +41,15 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
+import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
 import name.falgout.jeffrey.proto.ProtoDescriptor;
 import name.falgout.jeffrey.proto.fieldmask.FieldMask;
 import name.falgout.jeffrey.proto.fieldmask.FieldPath;
 import name.falgout.jeffrey.proto.fieldmask.usage.RequiresFields;
 import name.falgout.jeffrey.proto.fieldmask.usage.processor.FieldUsageValidator.FieldMaskWithSource.Source;
+import name.falgout.jeffrey.proto.fieldmask.usage.processor.RequiresFieldsValidator.RequiresFieldsProcessingStep;
 
 @BugPattern(
     name = "ProtoFieldUsageValidator",
@@ -69,7 +73,7 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
       return Description.NO_MATCH;
     }
 
-    new FieldMaskUsageVisitor().scan(tree.getBody(), fieldMasks).forEach(state::reportMatch);
+    new FieldMaskUsageVisitor(state).scan(tree.getBody(), fieldMasks).forEach(state::reportMatch);
     return Description.NO_MATCH;
   }
 
@@ -96,6 +100,12 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
 
   private class FieldMaskUsageVisitor extends
       TreeScanner<ImmutableList<Description>, Map<Name, FieldMaskWithSource>> {
+    private final VisitorState state;
+
+    FieldMaskUsageVisitor(VisitorState state) {
+      this.state = state;
+    }
+
     @Override
     public ImmutableList<Description> scan(Tree tree, Map<Name, FieldMaskWithSource> fieldMasks) {
       ImmutableList<Description> result = super.scan(tree, fieldMasks);
@@ -114,7 +124,38 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
     @Override
     public ImmutableList<Description> visitVariable(
         VariableTree node, Map<Name, FieldMaskWithSource> fieldMasks) {
+      VarSymbol variable = ASTHelpers.getSymbol(node);
+      if (hasValidRequiresFields(variable)) {
+        getRequiredFields(variable)
+            .map(FieldMaskWithSource::createFromAnnotation)
+            .ifPresent(fieldMask -> fieldMasks.put(node.getName(), fieldMask));
+      }
+
+      if (node.getInitializer() == null) {
+        return ImmutableList.of();
+      }
+
       return visitAssignment(node, node.getName(), node.getInitializer(), fieldMasks);
+    }
+
+    /**
+     * Validates that the given {@code element} has a valid {@code @RequiresFields} annotation.
+     *
+     * Local variable annotations aren't checked by Annotation Processors, so we have to do it here,
+     * just in case.
+     */
+    private boolean hasValidRequiresFields(Element symbol) {
+      if (symbol.getAnnotation(RequiresFields.class) == null) {
+        return false;
+      }
+
+      ProcessingEnvironment processingEnv = JavacProcessingEnvironment.instance(state.context);
+      RequiresFieldsProcessingStep step = new RequiresFieldsProcessingStep(processingEnv);
+      try {
+        return step.validateRequiresFields(symbol);
+      } catch (ClassNotFoundException e) {
+        throw new IllegalStateException(e);
+      }
     }
 
     @Override
@@ -147,14 +188,16 @@ public final class FieldUsageValidator extends BugChecker implements MethodTreeM
         }
 
         FieldMaskWithSource originalFieldMask = fieldMasks.get(variableName);
-        FieldMask<?> newMask = newFieldMask.get().getFieldMask();
+        if (originalFieldMask.getSource() == Source.ANNOTATION) {
+          if (!containsAll(newFieldMask.get().getFieldMask(), originalFieldMask.getFieldMask())) {
+            return ImmutableList.of(
+                buildDescription(node)
+                    .setMessage("RHS has incompatible FieldMask.")
+                    .build());
+          }
 
-        if (originalFieldMask.getSource() == Source.ANNOTATION
-            && !containsAll(newMask, originalFieldMask.getFieldMask())) {
-          return ImmutableList.of(
-              buildDescription(node)
-                  .setMessage("RHS has incompatible FieldMask.")
-                  .build());
+          // Don't override the annotation's FieldMask.
+          return ImmutableList.of();
         }
       }
 
